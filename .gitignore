@@ -1,6 +1,6 @@
 # Directories
-./out
-./.idea
+out
+.idea
 
 # Files
 go.mod
