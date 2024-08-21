@@ -30,15 +30,15 @@ func main() {
 	}
 	defer file.Close()
 
-	readings, err := csv.ProcessNEM12File(file)
+	readings, err := csv.ParallelProcessNEM12File(file)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	_, _ = sql.GenerateInsertStatements(readings)
-	//
-	//fmt.Println(statements)
+	statements, _ := sql.GenerateInsertStatements(readings)
+
+	fmt.Println(statements)
 	fmt.Printf("%.2fs elapsed\n", time.Since(start).Seconds())
 }
 

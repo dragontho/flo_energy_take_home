@@ -1,32 +1,116 @@
 package csv
 
 import (
+	"bufio"
 	"encoding/csv"
 	"flo_energy_take_home/db/test_flo/public/model"
 	"fmt"
 	"io"
+	"os"
+	"runtime"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
 )
 
-type NEM12Record struct {
-	RecordIndicator string
-	NMI             string
-	IntervalLength  int
-	Date            string
-	Values          []float64
+func ParallelProcessNEM12File(file *os.File) ([]model.MeterReadings, error) {
+	numWorkers := runtime.NumCPU()
+	chunks, err := splitFileIntoChunks(file, numWorkers)
+	if err != nil {
+		return nil, fmt.Errorf("error splitting file: %v", err)
+	}
+
+	var wg sync.WaitGroup
+	readingsChan := make(chan []model.MeterReadings, numWorkers)
+	errorsChan := make(chan error, numWorkers)
+
+	for _, chunk := range chunks {
+		wg.Add(1)
+		go func(chunk []string) {
+			defer wg.Done()
+			readings, err := processChunk(chunk)
+			if err != nil {
+				errorsChan <- err
+				return
+			}
+			readingsChan <- readings
+		}(chunk)
+	}
+
+	go func() {
+		wg.Wait()
+		close(readingsChan)
+		close(errorsChan)
+	}()
+
+	var allReadings []model.MeterReadings
+	for readings := range readingsChan {
+		allReadings = append(allReadings, readings...)
+	}
+
+	if len(errorsChan) > 0 {
+		return nil, <-errorsChan // Return the first error encountered
+	}
+
+	return allReadings, nil
 }
 
-func ProcessNEM12File(reader io.Reader) ([]model.MeterReadings, error) {
-	csvReader := csv.NewReader(reader)
-	csvReader.FieldsPerRecord = -1 // Allow variable number of fields
+func splitFileIntoChunks(file *os.File, numChunks int) ([][]string, error) {
+	scanner := bufio.NewScanner(file)
+	var chunks [][]string
+	var currentChunk []string
+	var inRecord200 bool
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		fields := strings.Split(line, ",")
+
+		if fields[0] == "200" {
+			if len(currentChunk) > 0 {
+				chunks = append(chunks, currentChunk)
+				currentChunk = []string{}
+			}
+			inRecord200 = true
+		}
+
+		currentChunk = append(currentChunk, line)
+
+		if fields[0] == "300" && inRecord200 {
+			inRecord200 = false
+		}
+
+		if len(chunks) == numChunks-1 && !inRecord200 {
+			break
+		}
+	}
+
+	if len(currentChunk) > 0 {
+		chunks = append(chunks, currentChunk)
+	}
+
+	// Add any remaining lines to the last chunk
+	for scanner.Scan() {
+		chunks[len(chunks)-1] = append(chunks[len(chunks)-1], scanner.Text())
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("error reading file: %v", err)
+	}
+
+	return chunks, nil
+}
+
+func processChunk(chunk []string) ([]model.MeterReadings, error) {
+	reader := csv.NewReader(strings.NewReader(strings.Join(chunk, "\n")))
+	reader.FieldsPerRecord = -1 // Allow variable number of fields
 
 	var readings []model.MeterReadings
 	var currentNMI string
 	var currentIntervalLength int
 
 	for {
-		record, err := csvReader.Read()
+		record, err := reader.Read()
 		if err == io.EOF {
 			break
 		}
@@ -40,8 +124,7 @@ func ProcessNEM12File(reader io.Reader) ([]model.MeterReadings, error) {
 
 		switch record[0] {
 		case "200":
-			// Taking into account only mandatory fields
-			if len(record) < 6 {
+			if len(record) < 9 {
 				return nil, fmt.Errorf("invalid 200 record: not enough fields")
 			}
 			currentNMI = record[1]
