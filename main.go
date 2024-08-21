@@ -39,7 +39,11 @@ func main() {
 
 	statements, _ := sql.GenerateInsertStatements(readings, *batchSize)
 
-	fmt.Println(statements)
+	err = util.WriteToSQLFilesParallel(statements, "./out")
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 	fmt.Printf("%.2fs elapsed\n", time.Since(start).Seconds())
 }
 
