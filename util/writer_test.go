@@ -2,7 +2,6 @@ package util
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -65,7 +64,7 @@ func TestWriteToSQLFilesParallel(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a temporary directory for each test
-			tempDir, err := ioutil.TempDir("", "sqltest")
+			tempDir, err := os.MkdirTemp("", "sqltest")
 			if err != nil {
 				t.Fatalf("Failed to create temp dir: %v", err)
 			}
@@ -73,7 +72,7 @@ func TestWriteToSQLFilesParallel(t *testing.T) {
 
 			// Create existing files if specified
 			for _, filename := range tt.existingFiles {
-				err := ioutil.WriteFile(filepath.Join(tempDir, filename), []byte("old content"), 0644)
+				err := os.WriteFile(filepath.Join(tempDir, filename), []byte("old content"), 0644)
 				if err != nil {
 					t.Fatalf("Failed to create existing file: %v", err)
 				}
@@ -97,7 +96,7 @@ func TestWriteToSQLFilesParallel(t *testing.T) {
 			}
 
 			// Check number of files created
-			files, err := ioutil.ReadDir(tempDir)
+			files, err := os.ReadDir(tempDir)
 			if err != nil {
 				t.Fatalf("Failed to read temp dir: %v", err)
 			}
@@ -109,7 +108,7 @@ func TestWriteToSQLFilesParallel(t *testing.T) {
 			if !tt.expectError {
 				for i, statement := range tt.statements {
 					fileName := filepath.Join(tempDir, fmt.Sprintf("statement_%d.sql", i+1))
-					content, err := ioutil.ReadFile(fileName)
+					content, err := os.ReadFile(fileName)
 					if err != nil {
 						t.Errorf("Failed to read file %s: %v", fileName, err)
 						continue
@@ -145,7 +144,7 @@ func TestWriteToSQLFilesParallel_ConcurrencyAndRaceConditions(t *testing.T) {
 		statements[i] = fmt.Sprintf("INSERT INTO table1 VALUES (%d, 'test%d')", i, i)
 	}
 
-	tempDir, err := ioutil.TempDir("", "sqltest_concurrency")
+	tempDir, err := os.MkdirTemp("", "sqltest_concurrency")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -159,7 +158,7 @@ func TestWriteToSQLFilesParallel_ConcurrencyAndRaceConditions(t *testing.T) {
 	// Check that all files were created and contain correct content
 	for i, statement := range statements {
 		fileName := filepath.Join(tempDir, fmt.Sprintf("statement_%d.sql", i+1))
-		content, err := ioutil.ReadFile(fileName)
+		content, err := os.ReadFile(fileName)
 		if err != nil {
 			t.Errorf("Failed to read file %s: %v", fileName, err)
 			continue
