@@ -3,7 +3,6 @@ package csv
 import (
 	"flo_energy_take_home/db/test_flo/public/model"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -13,7 +12,7 @@ import (
 func TestParallelProcessNEM12File(t *testing.T) {
 	runTestCases(t, func(content string) ([]model.MeterReadings, error) {
 		// Create a temporary file
-		tmpfile, err := ioutil.TempFile("", "test*.csv")
+		tmpfile, err := os.CreateTemp("", "test*.csv")
 		if err != nil {
 			return nil, err
 		}
@@ -199,7 +198,7 @@ func TestSplitFileIntoChunks(t *testing.T) {
 300,20050301,0,0,0,0,0,0,0,0,0,0,0,0,0.461,0.810,0.568,1.234
 900`
 
-	tmpfile, err := ioutil.TempFile("", "test*.csv")
+	tmpfile, err := os.CreateTemp("", "test*.csv")
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}

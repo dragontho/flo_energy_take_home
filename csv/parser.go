@@ -125,25 +125,25 @@ func processChunk(chunk []string) ([]model.MeterReadings, error) {
 		switch record[0] {
 		case "200":
 			if len(record) < 9 {
-				return nil, fmt.Errorf("invalid 200 record: not enough fields")
+				return nil, fmt.Errorf("invalid 200 record: not enough fields. record: %v", record)
 			}
 			currentNMI = record[1]
 			intervalLength, err := strconv.Atoi(record[8])
 			if err != nil {
-				return nil, fmt.Errorf("invalid interval length: %v", err)
+				return nil, fmt.Errorf("invalid interval length: %v. record: %v", err, record)
 			}
 			if !(intervalLength == 5 || intervalLength == 15 || intervalLength == 30) {
-				return nil, fmt.Errorf("invalid interval length, must be one of 5, 15 or 30")
+				return nil, fmt.Errorf("invalid interval length, must be one of 5, 15 or 30. record: %v", record)
 			}
 			currentIntervalLength = intervalLength
 
 		case "300":
 			if len(record) < 3 {
-				return nil, fmt.Errorf("invalid 300 record: not enough fields")
+				return nil, fmt.Errorf("invalid 300 record: not enough fields. record: %v", record)
 			}
 			date, err := time.Parse("20060102", record[1])
 			if err != nil {
-				return nil, fmt.Errorf("invalid date %s: %v", record[1], err)
+				return nil, fmt.Errorf("invalid date %s: %v. record: %v", record[1], err, record)
 			}
 			// Timestamp for consumption for past `IntervalLength` minutes
 			date = date.Add(time.Duration(currentIntervalLength) * time.Minute)
@@ -152,7 +152,7 @@ func processChunk(chunk []string) ([]model.MeterReadings, error) {
 
 			// Check for range of possible 300 record lengths
 			if len(record) < numberOfIntervals+3 || len(record) > numberOfIntervals+7 {
-				return nil, fmt.Errorf("invalid number of intervals: %d", numberOfIntervals)
+				return nil, fmt.Errorf("invalid number of intervals: %d. record: %v", numberOfIntervals, record)
 			}
 
 			for i, v := range record[2 : 2+numberOfIntervals] {
@@ -161,7 +161,7 @@ func processChunk(chunk []string) ([]model.MeterReadings, error) {
 				}
 				value, err := strconv.ParseFloat(v, 64)
 				if err != nil {
-					return nil, fmt.Errorf("invalid consumption value: %v", err)
+					return nil, fmt.Errorf("invalid consumption value: %v. record: %v", err, record)
 				}
 				timestamp := date.Add(time.Duration(i*currentIntervalLength) * time.Minute)
 				reading := model.MeterReadings{

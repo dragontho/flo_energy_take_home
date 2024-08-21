@@ -13,7 +13,8 @@ import (
 func main() {
 	start := time.Now()
 	filename := flag.String("file", "", "CSV file to read")
-	_ = flag.String("delimiter", ",", "CSV delimiter")
+	batchSize := flag.Int("batch", 10000, "Number of sql files to produce")
+	//_ = flag.String("delimiter", ",", "CSV delimiter")
 
 	flag.Parse()
 
@@ -36,7 +37,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	statements, _ := sql.GenerateInsertStatements(readings)
+	statements, _ := sql.GenerateInsertStatements(readings, *batchSize)
 
 	fmt.Println(statements)
 	fmt.Printf("%.2fs elapsed\n", time.Since(start).Seconds())
